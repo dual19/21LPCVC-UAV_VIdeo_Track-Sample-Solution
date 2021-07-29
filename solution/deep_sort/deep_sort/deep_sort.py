@@ -6,8 +6,11 @@ from .sort.nn_matching import NearestNeighborDistanceMetric
 from .sort.preprocessing import non_max_suppression
 from .sort.detection import Detection
 from .sort.tracker import Tracker
+import lightreid
 
 import datetime
+import yaml
+import cv2
 
 
 __all__ = ['DeepSort']
@@ -18,7 +21,13 @@ class DeepSort(object):
         self.min_confidence = min_confidence
         self.nms_max_overlap = nms_max_overlap
 
-        self.extractor = Extractor(model_path, use_cuda=use_cuda)
+        #Lightreid Init
+        config_file = "lightreid_config/base_config_duke_res18_lightmodel_lightfeat.yaml"
+        model_path = "./multiple_datasets_trained_model.pth"
+        with open(config_file) as file:
+            config = yaml.load(file, Loader=yaml.FullLoader)
+
+        self.extractor = lightreid.build_inference(config, model_path, use_gpu=False)
 
         max_cosine_distance = max_dist
         nn_budget = 100
@@ -108,15 +117,22 @@ class DeepSort(object):
         return t,l,w,h
     
     def _get_features(self, bbox_xywh, ori_img):
+        def _resize(im, size):
+            return torch.from_numpy(cv2.resize(im.astype(np.float32), size).transpose([2,0,1]))
+
+        if len(bbox_xywh) == 0:
+            return np.array([])
+
+        features=[]
         im_crops = []
         for box in bbox_xywh:
             x1,y1,x2,y2 = self._xywh_to_xyxy(box)
             im = ori_img[y1:y2,x1:x2]
             im_crops.append(im)
-        if im_crops:
-            features = self.extractor(im_crops)
-        else:
-            features = np.array([])
+
+        im_batch = torch.cat([_resize(im, [256, 128]).unsqueeze(0) for im in im_crops], dim=0).float()
+        features = self.extractor.process(im_batch, return_type='numpy')
+    
         return features
 
 

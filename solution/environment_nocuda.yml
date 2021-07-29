@@ -22,5 +22,14 @@ dependencies:
   - pandas
   - easydict
 
+  - scikit-learn
+  - prettytable
+  - gdown
+  - progressbar2
+  - einops
+  - timm
+
   - pip:
     - opencv-contrib-python-headless>=4.1.2
+    - hexhamming==1.1
+    - apex
